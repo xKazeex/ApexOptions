@@ -6,27 +6,39 @@ A Python engine that analyzes market microstructure, volatility dynamics, and hi
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
 apex-options/
-├── engine/
-│   ├── __init__.py          # Package init, version
-│   ├── config.py            # Configuration (dataclass + env vars)
-│   ├── data_fetcher.py      # Market data abstraction (DataSource ABC + YahooFinance impl)
-│   ├── greeks.py            # Black-Scholes-Merton pricing, Greeks, IV solver
-│   ├── volatility.py        # IV/RV analysis, IV Rank/Percentile, regime detection
-│   ├── strategy_selector.py # Rule-based strategy selection (5 strategies)
-│   ├── position_optimizer.py# Strike/DTE/sizing optimization, position parameters
-│   ├── risk_manager.py      # Risk assessment, profit targets, stop-loss checks
-│   └── report_generator.py  # Report output (JSON + Markdown)
-├── tests/
-│   ├── test_greeks.py       # BSM pricing, Greeks, IV solver tests
-│   ├── test_volatility.py   # RV calc, IV rank/percentile, regime tests
-│   └── test_risk_manager.py # Risk assessment, stop-loss, profit target tests
+├── api/                 # FastAPI backend
+│   ├── main.py          # Entry point for the API
+│   ├── routers/         # API route handlers
+│   └── models/          # Pydantic schemas
+├── dashboard/           # Streamlit dashboard
+│   ├── app.py           # Streamlit application
+│   └── components/      # UI components
+├── engine/              # Core quantitative engine
+├── tests/               # Unit and integration tests
 ├── requirements.txt
 └── README.md
 ```
+
+## Setup and Installation
+
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Start the API server:
+   ```bash
+   python -m api.main
+   ```
+
+3. Start the Streamlit dashboard:
+   ```bash
+   streamlit run dashboard/app.py
+   ```
 
 ## Quick Start
 
