@@ -1,0 +1,26 @@
+## Summary
+
+Complete quantitative analytics engine for options premium-selling analysis -- the brain of Apex Options Analytics.
+
+### Files (15 new, 4,615 lines)
+- engine/ -- 9 modules: config, data_fetcher, greeks, volatility, strategy_selector, position_optimizer, risk_manager, report_generator, __init__
+- tests/ -- 3 test files with 65 unit tests
+- requirements.txt, README.md, .gitignore
+
+### Features
+- Black-Scholes-Merton pricing with all 5 Greeks and Newton-Raphson IV solver
+- IV Rank/Percentile, realized volatility, volatility regime detection
+- Rule-based strategy selector (5 strategies: Bull Put Spread, Bear Call Spread, Iron Condor, Short Strangle, Calendar Spread)
+- Position optimizer with strike/DTE/sizing optimization and R/R calculation
+- Risk manager with per-trade (2%) and portfolio-level (15%) risk controls, profit targets, stop-loss triggers
+- Report generator in both Markdown and JSON formats
+- Clean public API via engine/__init__.py with single-entry run_analysis() pipeline
+
+### Testing
+- All 65 tests passing with pytest
+- Core mathematical modules: greeks (64% coverage), risk_manager (90%)
+- Comprehensive edge case coverage (zero TTE, negative inputs, boundary conditions)
+
+### Follow-up
+- Position optimizer and report generator need integration tests with live data
+- Strategy selector evaluators can be strengthened with more market scenarios

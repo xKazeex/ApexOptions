@@ -340,7 +340,7 @@ def _build_report(
         }
     )
 
-    # Strikes dict
+    # Strikes dict — include premium and bid/ask for limit pricing
     strikes_dict = _safe_serialize(
         {
             "underlying_price": position_params.underlying_price,
@@ -350,6 +350,11 @@ def _build_report(
             "long_strike_2": position_params.long_strike_2,
             "spread_width": position_params.spread_width,
             "dte": position_params.dte,
+            "premium_collected": position_params.premium_collected,
+            "max_loss": position_params.max_loss,
+            "max_profit": position_params.max_profit,
+            "risk_reward_ratio": position_params.risk_reward_ratio,
+            "probability_of_profit": position_params.probability_of_profit,
         }
     )
 

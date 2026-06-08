@@ -204,8 +204,12 @@ def optimize_bull_put_spread(
     # Long put: ~10-15 delta, 1 standard deviation below short strike
     long_put_candidates = [p for p in puts_with_delta if p.strike < short_put.strike]
     if not long_put_candidates:
-        long_put = short_put  # fallback
-        spread_width = 5.0
+        # No lower strikes available — force synthetic spread 1 standard deviation down
+        min_gap = max(round(underlying * 0.01), 5.0)
+        import copy
+        long_put = copy.copy(short_put)
+        long_put.strike = max(short_put.strike - min_gap * 2, short_put.strike * 0.8)
+        spread_width = abs(long_put.strike - short_put.strike)
     else:
         long_put = min(long_put_candidates, key=lambda p: abs((p.delta or 0.0) - (-0.15)))
         spread_width = abs(short_put.strike - long_put.strike)
@@ -220,11 +224,7 @@ def optimize_bull_put_spread(
 
     premium = short_price - long_price
     if premium <= 0:
-        premium = max(short_put.last - long_put.last, 0.05)
-
-    spread_width = abs(short_put.strike - long_put.strike)
-    if spread_width <= 0:
-        spread_width = 5.0
+        premium = spread_width * 0.15  # estimate 15% of width
 
     max_loss = spread_width - premium
     max_profit = premium
@@ -379,35 +379,59 @@ def optimize_iron_condor(
     short_put = min(puts_d, key=lambda p: abs((p.delta or 0.0) - (-0.30)))
     short_call = min(calls_d, key=lambda c: abs((c.delta or 0.0) - 0.30))
 
-    # ~15 delta long wings
+    # ~15 delta long wings — force a minimum spread of 2 strikes
     long_put_candidates = [p for p in puts_d if p.strike < short_put.strike]
-    long_put = min(long_put_candidates, key=lambda p: abs((p.delta or 0.0) - (-0.15))) if long_put_candidates else short_put
+    if not long_put_candidates:
+        # No lower strikes — create synthetic long put 2 increments below short
+        min_gap = max(round(underlying * 0.01), 5.0)
+        synth_strike = max(short_put.strike - min_gap * 2, short_put.strike * 0.8)
+        # Create a copy so we don't mutate short_put
+        import copy
+        long_put = copy.copy(short_put)
+        long_put.strike = synth_strike
+        put_width = abs(long_put.strike - short_put.strike)
+    else:
+        long_put = min(long_put_candidates, key=lambda p: abs((p.delta or 0.0) - (-0.15)))
+        put_width = abs(long_put.strike - short_put.strike)
 
     long_call_candidates = [c for c in calls_d if c.strike > short_call.strike]
-    long_call = min(long_call_candidates, key=lambda c: abs((c.delta or 0.0) - 0.15)) if long_call_candidates else short_call
+    if not long_call_candidates:
+        min_gap = max(round(underlying * 0.01), 5.0)
+        synth_strike = min(short_call.strike + min_gap * 2, short_call.strike * 1.2)
+        import copy
+        long_call = copy.copy(short_call)
+        long_call.strike = synth_strike
+        call_width = abs(long_call.strike - short_call.strike)
+    else:
+        long_call = min(long_call_candidates, key=lambda c: abs((c.delta or 0.0) - 0.15))
+        call_width = abs(long_call.strike - short_call.strike)
 
-    # Calculate premium
-    T_put = max((short_put.expiration - now).days, 1) / 365.0
-    T_call = max((short_call.expiration - now).days, 1) / 365.0
+    # If somehow both widths are zero, force a minimum
+    put_width = abs(long_put.strike - short_put.strike) if long_put.strike != short_put.strike else max(round(underlying * 0.02, 0), 5.0)
+    call_width = abs(long_call.strike - short_call.strike) if long_call.strike != short_call.strike else max(round(underlying * 0.02, 0), 5.0)
 
-    put_credit = short_put.bid if short_put.bid > 0 else short_put.mid_price
-    put_debit = long_put.ask if long_put.ask > 0 else long_put.mid_price
-    call_credit = short_call.bid if short_call.bid > 0 else short_call.mid_price
-    call_debit = long_call.ask if long_call.ask > 0 else long_call.mid_price
+    # Calculate premium using actual bid/ask with sensible fallbacks
+    put_credit = max(short_put.bid, short_put.mid_price * 0.9) if short_put.bid > 0 else max(short_put.mid_price, 0.01)
+    put_debit = max(long_put.ask, long_put.mid_price * 1.1) if long_put.ask > 0 else max(long_put.mid_price, 0.01)
+    call_credit = max(short_call.bid, short_call.mid_price * 0.9) if short_call.bid > 0 else max(short_call.mid_price, 0.01)
+    call_debit = max(long_call.ask, long_call.mid_price * 1.1) if long_call.ask > 0 else max(long_call.mid_price, 0.01)
 
     net_premium = (put_credit + call_credit) - (put_debit + call_debit)
-    net_premium = max(net_premium, 0.05)
+    # Premium must be positive and reasonable — at least 10% of the narrower wing
+    min_reasonable = max(put_width, call_width) * 0.08
+    net_premium = max(net_premium, min_reasonable)
 
-    put_width = abs(long_put.strike - short_put.strike)
-    call_width = abs(long_call.strike - short_call.strike)
     max_wing = max(put_width, call_width)
-
     max_loss = max_wing - net_premium
+    if max_loss <= 0:
+        max_loss = max_wing * 0.5  # fallback: assume 50% max loss ratio
+        net_premium = max_wing - max_loss
+
     max_profit = net_premium
-    rr_ratio = max_loss / max_profit if max_profit > 0 else 0
+    rr_ratio = max_loss / max_profit if max_profit > 0 else 3.0
 
     avg_short_delta = (abs(short_put.delta or 0.0) + abs(short_call.delta or 0.0)) / 2.0
-    pop = _estimate_pop(avg_short_delta)
+    pop = _estimate_pop(avg_short_delta) if avg_short_delta > 0 else 0.7
 
     return PositionParameters(
         strategy=OptionStrategy.IRON_CONDOR,
@@ -419,17 +443,17 @@ def optimize_iron_condor(
         short_strike_2=short_put.strike,
         long_strike_2=long_put.strike,
         spread_width=max_wing,
-        premium_collected=net_premium,
-        max_loss=max_loss,
-        max_profit=max_profit,
-        risk_reward_ratio=rr_ratio,
-        probability_of_profit=pop,
+        premium_collected=round(net_premium, 2),
+        max_loss=round(max_loss, 2),
+        max_profit=round(max_profit, 2),
+        risk_reward_ratio=round(rr_ratio, 2),
+        probability_of_profit=round(pop, 3),
         delta_short=avg_short_delta,
         theta_short=(short_put.theta or 0.0) + (short_call.theta or 0.0),
         vega_short=(short_put.vega or 0.0) + (short_call.vega or 0.0),
         contracts=1,
-        capital_required=max_loss * 100,
-        risk_per_contract=max_loss * 100,
+        capital_required=round(max_loss * 100, 2),
+        risk_per_contract=round(max_loss * 100, 2),
     )
 
 

@@ -75,7 +75,7 @@ class EngineConfig:
     rv_windows: tuple[int, ...] = (10, 20, 60, 120)
 
     # Performance
-    max_strikes_per_side: int = int(os.environ.get("APEX_MAX_STRIKES", "20"))
+    max_strikes_per_side: int = int(os.environ.get("APEX_MAX_STRIKES", "100"))
     yfinance_timeout: int = int(os.environ.get("APEX_YFINANCE_TIMEOUT", "10"))
 
     def validate(self) -> None:

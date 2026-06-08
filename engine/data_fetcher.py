@@ -265,7 +265,7 @@ class YahooFinanceDataSource(DataSource):
             target_expirations = [closest]
         else:
             # Return all expirations but only fetch the nearest ones
-            target_expirations = expiration_dates[:10]
+            target_expirations = expiration_dates[:20]
 
         all_calls: list[OptionContract] = []
         all_puts: list[OptionContract] = []
