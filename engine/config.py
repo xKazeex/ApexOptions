@@ -46,8 +46,8 @@ class EngineConfig:
     )
 
     # Time parameters
-    default_dte_min: int = int(os.environ.get("APEX_DTE_MIN", "30"))
-    default_dte_max: int = int(os.environ.get("APEX_DTE_MAX", "60"))
+    default_dte_min: int = int(os.environ.get("APEX_DTE_MIN", "7"))
+    default_dte_max: int = int(os.environ.get("APEX_DTE_MAX", "180"))
 
     # Profit / loss targets
     profit_target_pct: float = field(
