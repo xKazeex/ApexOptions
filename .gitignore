@@ -1,4 +1,5 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -8,3 +9,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+*.pyo
+.python-version
+.DS_Store
