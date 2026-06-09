@@ -1054,13 +1054,22 @@ def scan_market(tickers, capital, duration_days, mode="csp",
         print(f"  Backtest:      enabled")
     print(f"{'='*72}\n")
 
-    # Pre-fetch technicals
+    # Pre-fetch technicals (parallelized for speed)
     tech_cache = {}
-    for sym in tickers:
-        print(f"  Loading {sym} TA...", end="", file=sys.stderr)
-        tech_cache[sym] = compute_technicals(sym)
-        rsi_str = f"RSI: {tech_cache[sym].rsi:.0f}" if tech_cache[sym].rsi else "N/A"
-        print(f" {rsi_str}", file=sys.stderr)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    def load_ta(sym):
+        return sym, compute_technicals(sym)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(load_ta, sym): sym for sym in tickers}
+        for future in as_completed(futures):
+            sym = futures[future]
+            try:
+                tech_cache[sym] = future.result()[1]
+                rsi_str = f"RSI: {tech_cache[sym].rsi:.0f}" if tech_cache[sym].rsi else "N/A"
+                print(f"  Loaded {sym} TA → {rsi_str}", file=sys.stderr)
+            except Exception:
+                tech_cache[sym] = TechnicalIndicators()
+                print(f"  Loaded {sym} TA → N/A (fallback)", file=sys.stderr)
 
     for ticker_symbol in tickers:
         print(f"  Scanning {ticker_symbol}...", end="", file=sys.stderr)
