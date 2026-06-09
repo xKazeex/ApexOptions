@@ -121,6 +121,33 @@ st.markdown('<p class="main-header">⚡ ThetaEdge</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">AI-powered options selling recommendation engine</p>', unsafe_allow_html=True)
 st.markdown("---")
 
+# ── Quick Ticker Check ──
+st.markdown("### 🔍 Quick Ticker Check")
+check_col1, check_col2 = st.columns([3, 1])
+with check_col1:
+    quick_ticker = st.text_input("Enter a ticker symbol", value="", placeholder="e.g. AAPL, INTC, NVDA", label_visibility="collapsed")
+with check_col2:
+    check_ticker = st.button("🔍 Check", type="secondary", use_container_width=True)
+
+if check_ticker and quick_ticker:
+    quick_ticker = quick_ticker.strip().upper()
+    if provider == "tradier" and tradier_token:
+        set_data_provider(TradierProvider(token=tradier_token))
+    
+    with st.spinner(f"Analyzing {quick_ticker}..."):
+        recs = scan_market(
+            tickers=[quick_ticker], capital=float(capital), duration_days=int(duration),
+            mode=mode_key, min_delta=min_delta, max_delta=max_delta,
+            dte_min=int(dte_min), dte_max=int(dte_max), top_n=5,
+            enable_backtest=enable_backtest,
+        )
+        st.session_state['recs'] = recs
+        st.session_state['capital'] = float(capital)
+        st.session_state['quick_ticker'] = quick_ticker
+    st.rerun()
+
+st.markdown("---")
+
 # ── Run Scan ──
 if run_scan:
     if provider == "tradier" and tradier_token:
@@ -174,12 +201,18 @@ if 'recs' in st.session_state and st.session_state['recs']:
     capital = st.session_state.get('capital', capital)
 
     # Show data source
+    ticker_context = st.session_state.get('quick_ticker', '')
+    if ticker_context:
+        context_str = f" for {ticker_context}"
+    else:
+        context_str = ""
+    
     if provider == "tradier" and tradier_available:
         source_label = "🔴 Live (Tradier)"
     else:
         source_label = "🟡 15-min delayed (yfinance)"
 
-    st.markdown(f"## 🏆 Top {len(recs)} Recommendations — {source_label}")
+    st.markdown(f"## 🏆 Top {len(recs)} Recommendations{context_str} — {source_label}")
 
     # Summary metrics
     avg_pcr = np.mean([r.pcr for r in recs])
