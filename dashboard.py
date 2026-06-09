@@ -128,11 +128,11 @@ st.sidebar.markdown("### 📈 Ticker Universe")
 universe_option = st.sidebar.selectbox(
     "Universe",
     options=["default", "sp500", "nasdaq100", "liquid", "custom"],
-    index=0,
+    index=4,
     help="Choose ticker universe or custom list"
 )
 
-tickers = DEFAULT_TICKERS
+tickers = ["AAPL", "INTC", "NVDA", "AMZN"]
 if universe_option == "custom":
     ticker_input = st.sidebar.text_input(
         "Tickers (comma-separated)",
