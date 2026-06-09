@@ -173,7 +173,13 @@ if 'recs' in st.session_state and st.session_state['recs']:
     recs = st.session_state['recs']
     capital = st.session_state.get('capital', capital)
 
-    st.markdown(f"## 🏆 Top {len(recs)} Recommendations")
+    # Show data source
+    if provider == "tradier" and tradier_available:
+        source_label = "🔴 Live (Tradier)"
+    else:
+        source_label = "🟡 15-min delayed (yfinance)"
+
+    st.markdown(f"## 🏆 Top {len(recs)} Recommendations — {source_label}")
 
     # Summary metrics
     avg_pcr = np.mean([r.pcr for r in recs])
@@ -195,7 +201,8 @@ if 'recs' in st.session_state and st.session_state['recs']:
     best = recs[0]
     st.markdown(f"""
     <div class="best-pick">
-        <strong>⭐ Best Pick:</strong> {best.ticker} ${best.strike:.2f} {best.option_type.upper()} 
+        <strong>⭐ Best Pick:</strong> {best.ticker} @ <strong>${best.current_price:.2f}</strong> 
+        → Sell ${best.strike:.2f} {best.option_type.upper()} 
         expiring {best.expiration} (DTE: {best.dte})<br>
         <strong>Premium:</strong> ${best.premium_mid:.2f} (B:${best.bid:.2f} A:${best.ask:.2f}) | 
         <strong>Return:</strong> {best.pcr:.2f}% ({best.annualized_return:.1f}% ann.) |
@@ -212,6 +219,7 @@ if 'recs' in st.session_state and st.session_state['recs']:
                             (rec.option_type == "call" and rec.strike > rec.current_price) else "ITM"
         table_data.append({
             "#": i, "Ticker": rec.ticker, "Type": rec.option_type.upper(),
+            "Price": f"${rec.current_price:.2f}",
             "Strike": f"${rec.strike:.2f}", "Expiry": rec.expiration,
             "DTE": rec.dte, "Premium": f"${rec.premium_mid:.2f}",
             "Delta": f"{rec.delta:.3f}", "PoP": f"{rec.probability_of_profit:.0f}%",
