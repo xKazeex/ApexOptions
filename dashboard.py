@@ -300,7 +300,7 @@ if 'recs' in st.session_state and st.session_state['recs']:
                 st.write(f"Liquidity: Vol={rec.volume:,} | OI={rec.open_interest:,}")
                 c = rec.score_components
                 st.write(f"PCR={c.get('pcr',0):.0f} PoP={c.get('pop',0):.0f} Theta={c.get('theta',0):.0f}")
-                st.write(f"IV={c.get('iv',0):.0f} Liq={c.get('liq',0):.0f} RiskAdj={c.get('riskadj',0):.0f}")
+                st.write(f"IV={c.get('iv',0):.0f} Liq={c.get('liq',0):.0f} RiskAdj={c.get('riskadj',0):.0f} Tech={c.get('tech',50):.0f}")
 
             # Technicals & Backtest
             tcol1, tcol2 = st.columns(2)

@@ -55,13 +55,14 @@ MIN_PREMIUM_PER_CONTRACT = 5.0
 MAX_RESULTS_DEFAULT = 10
 MIN_PCR = 0.001
 
-# Scoring weights
-W_PCR = 0.25
-W_POP = 0.25
-W_THETA = 0.15
-W_IV = 0.15
+# Scoring weights (7-factor model)
+W_PCR = 0.22
+W_POP = 0.22
+W_THETA = 0.13
+W_IV = 0.13
 W_LIQ = 0.10
 W_RISKADJ = 0.10
+W_TECH = 0.10  # Technical trend bias
 
 # Sector mapping
 SECTOR_MAP = {
@@ -962,10 +963,56 @@ def build_rec(ticker_symbol, row, current_price, expiration, dte, T, mode,
 
 
 # ──────────────────────────────────────────────
+# Technical Trend Scoring
+# ──────────────────────────────────────────────
+
+def compute_technical_score(rec, mode):
+    """Score the technical setup for options selling (0-100).
+    
+    Rewards bullish/neutral trends for CSPs, penalizes bearish.
+    Penalizes oversold conditions for CSPs (stock might drop further).
+    Penalizes high ATR (too much volatility for safe premium).
+    """
+    tech = rec.technicals
+    if not tech:
+        return 50.0  # Neutral default if no TA data
+    
+    score = 50.0  # Start neutral
+    
+    # Trend direction (±30 points)
+    if tech.trend == "bullish":
+        score += 30  # Great for selling puts
+    elif tech.trend == "bearish":
+        score -= 30  # Risky for selling puts
+    
+    # RSI adjustment (±10 points)
+    if tech.rsi is not None:
+        if mode == "csp":
+            if tech.rsi < 30:
+                score -= 15  # Oversold — further downside risk
+            elif tech.rsi > 70:
+                score += 10  # Overbought — good to sell puts (expect pullback)
+        else:  # covered calls
+            if tech.rsi > 70:
+                score -= 15  # Overbought — stock might pull back, bad for CCs
+            elif tech.rsi < 30:
+                score += 10  # Oversold — good to sell calls
+    
+    # ATR penalty (±10 points)
+    if tech.atr_pct is not None:
+        if tech.atr_pct > 10:
+            score -= 10  # Too volatile
+        elif tech.atr_pct < 3:
+            score += 5   # Low vol is good for premium collecting
+    
+    return max(0, min(100, score))
+
+
+# ──────────────────────────────────────────────
 # Scoring Engine
 # ──────────────────────────────────────────────
 
-def compute_composite_score(rec, all_recs):
+def compute_composite_score(rec, all_recs, mode="csp"):
     scores = {}
     pcr_vals = [r.pcr for r in all_recs]
     scores['pcr'] = (rec.pcr - min(pcr_vals)) / (max(pcr_vals) - min(pcr_vals) + 0.001) * 100
@@ -989,8 +1036,12 @@ def compute_composite_score(rec, all_recs):
     radj_vals = [r.risk_adjusted_return for r in all_recs]
     scores['riskadj'] = (rec.risk_adjusted_return - min(radj_vals)) / (max(radj_vals) - min(radj_vals) + 0.001) * 100
 
+    # Technical trend score
+    scores['tech'] = compute_technical_score(rec, mode)
+
     composite = (scores['pcr'] * W_PCR + scores['pop'] * W_POP + scores['theta'] * W_THETA +
-                 scores['iv'] * W_IV + scores['liq'] * W_LIQ + scores['riskadj'] * W_RISKADJ)
+                 scores['iv'] * W_IV + scores['liq'] * W_LIQ + scores['riskadj'] * W_RISKADJ +
+                 scores['tech'] * W_TECH)
 
     rec.score_components = scores
     rec.composite_score = composite
@@ -1128,7 +1179,7 @@ def scan_market(tickers, capital, duration_days, mode="csp",
         return []
 
     for rec in all_recs:
-        compute_composite_score(rec, all_recs)
+        compute_composite_score(rec, all_recs, mode)
 
     for rec in all_recs:
         k, ck, contracts = compute_kelly(rec, capital)
@@ -1185,7 +1236,7 @@ def print_recs(recs, capital):
         print(f"  {'-'*68}")
         c = rec.score_components
         print(f"  Score: PCR={c.get('pcr',0):.0f} PoP={c.get('pop',0):.0f} Theta={c.get('theta',0):.0f} "
-              f"IV={c.get('iv',0):.0f} Liq={c.get('liq',0):.0f} RiskAdj={c.get('riskadj',0):.0f}")
+              f"IV={c.get('iv',0):.0f} Liq={c.get('liq',0):.0f} RiskAdj={c.get('riskadj',0):.0f} Tech={c.get('tech',50):.0f}")
         print(f"  Composite: {rec.composite_score:.1f}/100")
         print(f"  {'-'*68}")
         k_str = f"{rec.kelly_fraction:.4f}" if rec.kelly_fraction > 0 else "0"
