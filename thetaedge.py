@@ -1081,7 +1081,7 @@ def compute_kelly(rec, capital):
 # ──────────────────────────────────────────────
 
 def scan_market(tickers, capital, duration_days, mode="csp",
-                min_delta=0.0, max_delta=0.30, dte_min=7, dte_max=45, top_n=10,
+                min_delta=0.0, max_delta=0.30, dte_min=7, dte_max=220, top_n=10,
                 enable_backtest=True):
 
     all_recs = []
@@ -1393,7 +1393,7 @@ def interactive_mode():
           f"duration={duration}d, mode={mode.upper()}, universe={universe}")
     print(f"{'='*72}\n")
 
-    return capital, duration, mode, tickers, 0.0, max_delta, 7, 45, MAX_RESULTS_DEFAULT
+    return capital, duration, mode, tickers, 0.0, max_delta, 7, 220, MAX_RESULTS_DEFAULT
 
 
 def main():

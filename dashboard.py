@@ -60,9 +60,9 @@ with col2:
 
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    dte_min = st.number_input("Min DTE", min_value=1, max_value=180, value=7, step=1)
+    dte_min = st.number_input("Min DTE", min_value=1, max_value=220, value=7, step=1)
 with col2:
-    dte_max = st.number_input("Max DTE", min_value=1, max_value=180, value=45, step=1)
+    dte_max = st.number_input("Max DTE", min_value=1, max_value=220, value=45, step=1)
 
 top_n = st.sidebar.number_input("Top Results", min_value=1, max_value=50, value=10, step=1)
 st.sidebar.markdown("---")
