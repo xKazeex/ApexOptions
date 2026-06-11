@@ -1105,23 +1105,6 @@ def scan_market(tickers, capital, duration_days, mode="csp",
         print(f"  Backtest:      enabled")
     print(f"{'='*72}\n")
 
-    # Pre-fetch technicals (parallelized for speed)
-    tech_cache = {}
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    def load_ta(sym):
-        return sym, compute_technicals(sym)
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(load_ta, sym): sym for sym in tickers}
-        for future in as_completed(futures):
-            sym = futures[future]
-            try:
-                tech_cache[sym] = future.result()[1]
-                rsi_str = f"RSI: {tech_cache[sym].rsi:.0f}" if tech_cache[sym].rsi else "N/A"
-                print(f"  Loaded {sym} TA → {rsi_str}", file=sys.stderr)
-            except Exception:
-                tech_cache[sym] = TechnicalIndicators()
-                print(f"  Loaded {sym} TA → N/A (fallback)", file=sys.stderr)
-
     for ticker_symbol in tickers:
         print(f"  Scanning {ticker_symbol}...", end="", file=sys.stderr)
         ticker, cp, exps = fetch_ticker(ticker_symbol)
@@ -1140,14 +1123,12 @@ def scan_market(tickers, capital, duration_days, mode="csp",
             print(" (no exp)", file=sys.stderr)
             continue
 
-        tech = tech_cache.get(ticker_symbol, TechnicalIndicators())
         ew, ed = check_earnings(ticker_symbol, dte_high)
         exd = check_dividend(ticker_symbol)
         ticker_recs = []
 
         provider = get_data_provider_instance()
         for exp, dte in valid:
-            # Use provider's method if not yfinance, else use yfinance Ticker object
             if provider.get_name() != "yfinance" and provider._is_active():
                 calls_df, puts_df = provider.fetch_option_chain(ticker_symbol, exp)
                 if mode == "csp":
@@ -1167,11 +1148,20 @@ def scan_market(tickers, capital, duration_days, mode="csp",
             T = max(dte / 365.0, 1/365)
             for _, row in df.iterrows():
                 rec = build_rec(ticker_symbol, row, cp, exp, dte, T, mode,
-                                capital, tech, ew, ed, exd)
+                                capital, TechnicalIndicators(), ew, ed, exd)
                 if rec:
                     ticker_recs.append(rec)
 
         print(f" {len(ticker_recs)} candidates", file=sys.stderr)
+
+        # Lazy-load TA only for tickers that had candidates
+        if ticker_recs:
+            ticker_ta = compute_technicals(ticker_symbol)
+            for rec in ticker_recs:
+                rec.technicals = ticker_ta
+            rsi_str = f"RSI: {ticker_ta.rsi:.0f}" if ticker_ta.rsi else "N/A"
+            print(f"  Loaded {ticker_symbol} TA → {rsi_str}", file=sys.stderr)
+
         all_recs.extend(ticker_recs)
 
     if not all_recs:
