@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from thetaedge import (
     scan_market, print_recs, DEFAULT_TICKERS, TOP_LIQUID_TICKERS,
     build_ticker_universe, YFinanceProvider, TradierProvider,
-    set_data_provider, get_data_provider_instance
+    set_data_provider, get_data_provider_instance, SECTOR_TICKERS
 )
 
 # ── Custom CSS ──
@@ -89,11 +89,16 @@ st.sidebar.markdown("---")
 
 # ── Ticker Universe ──
 st.sidebar.markdown("### 📈 Ticker Universe")
+
+# Build sector options
+sector_names = sorted(SECTOR_TICKERS.keys())
+universe_options = ["default", "sp500", "nasdaq100", "liquid", "custom"] + sector_names
+
 universe_option = st.sidebar.selectbox(
     "Universe",
-    options=["default", "sp500", "nasdaq100", "liquid", "custom"],
+    options=universe_options,
     index=0,
-    help="Choose ticker universe or custom list"
+    help="Choose ticker universe, sector, or custom list"
 )
 
 tickers = DEFAULT_TICKERS
@@ -109,6 +114,9 @@ elif universe_option == "nasdaq100":
 elif universe_option == "liquid":
     tickers = TOP_LIQUID_TICKERS
     st.sidebar.caption(f"{len(tickers)} liquid tickers")
+elif universe_option in SECTOR_TICKERS:
+    tickers = SECTOR_TICKERS[universe_option]
+    st.sidebar.caption(f"{len(tickers)} {universe_option} tickers")
 else:
     st.sidebar.caption(f"{len(tickers)} default tickers")
 

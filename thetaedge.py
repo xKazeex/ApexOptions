@@ -88,6 +88,60 @@ TOP_LIQUID_TICKERS = [
     "F", "AA", "X", "NIO", "BABA", "JD", "BIDU"
 ]
 
+# GICS Sector-based ticker lists (liquid, optionable stocks per sector)
+SECTOR_TICKERS = {
+    "Technology": [
+        "AAPL", "MSFT", "NVDA", "AMD", "INTC", "CRM", "ADBE", "TXN", "QCOM",
+        "NOW", "PLTR", "MU", "ORCL", "IBM", "CSCO", "HPQ", "DELL", "ANET",
+        "MDB", "DDOG", "NET", "SNAP", "ZM", "DOCU", "WDAY", "ADSK", "FTNT",
+        "PANW", "CRWD", "OKTA"
+    ],
+    "Financial": [
+        "JPM", "BAC", "V", "MA", "GS", "MS", "WFC", "C", "AXP", "SCHW",
+        "BLK", "BX", "COF", "USB", "PNC", "TFC", "SOFI", "HOOD", "SQ",
+        "AFRM", "PYPL", "JEF", "MCO", "SPGI", "CME", "ICE"
+    ],
+    "Healthcare": [
+        "UNH", "JNJ", "PFE", "ABBV", "AMGN", "MRK", "LLY", "ABT", "TMO",
+        "DHR", "BMY", "VRTX", "ISRG", "SYK", "BSX", "GILD", "REGN",
+        "HCA", "CVS", "CI", "HUM", "BIIB", "ILMN"
+    ],
+    "Energy": [
+        "XOM", "CVX", "COP", "OXY", "EOG", "SLB", "HAL", "MPC", "PSX",
+        "VLO", "KMI", "WMB", "OKE", "PXD", "FANG", "DVN", "MRO"
+    ],
+    "Consumer Cyclical": [
+        "AMZN", "TSLA", "HD", "LOW", "NKE", "SBUX", "MCD", "BKNG", "MAR",
+        "HLT", "ABNB", "UBER", "DASH", "CMG", "YUM", "DHI", "LEN", "F",
+        "GM", "RIVN", "LCID", "CHWY", "BBY", "ROST", "TJX", "TGT"
+    ],
+    "Consumer Defensive": [
+        "WMT", "COST", "PG", "KO", "PEP", "CL", "KMB", "MDLZ", "KHC",
+        "GIS", "CPB", "SYY", "HSY", "CAG", "K", "MKC", "SJM", "COTY"
+    ],
+    "Communication": [
+        "GOOGL", "META", "DIS", "NFLX", "CMCSA", "T", "VZ", "TMUS",
+        "ROKU", "TTWO", "EA", "LYV", "PARA", "WBD", "CHTR", "DISH"
+    ],
+    "Industrial": [
+        "GE", "CAT", "BA", "HON", "UPS", "UNP", "RTX", "LMT", "GD",
+        "NOC", "MMM", "EMR", "ETN", "ROK", "CSX", "NSC", "FDX", "ODFL",
+        "DE", "PAYX", "CARR", "OTIS", "GEV"
+    ],
+    "Utilities": [
+        "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "ED",
+        "PEG", "WEC", "ES", "EIX", "PCG", "AWK", "CEG", "VST"
+    ],
+    "Real Estate": [
+        "PLD", "AMT", "CCI", "EQIX", "PSA", "O", "WELL", "SPG", "DLR",
+        "AVB", "EQR", "EXR", "MAA", "ARE", "INVH", "SUI"
+    ],
+    "Materials": [
+        "LIN", "SHW", "APD", "ECL", "NEM", "FCX", "DOW", "DD", "PPG",
+        "AA", "X", "CLF", "STLD", "NUE", "BALL", "IP", "WRK"
+    ],
+}
+
 
 def fetch_sp500_tickers() -> List[str]:
     """Fetch current S&P 500 components from Wikipedia or fallback to liquid list."""
@@ -138,12 +192,17 @@ def build_ticker_universe(universe: str = "default", min_price: float = 5.0,
     Build a dynamic ticker universe based on the specified strategy.
     
     Args:
-        universe: 'default', 'sp500', 'nasdaq100', 'liquid' (filtered by price/volume)
+        universe: 'default', 'sp500', 'nasdaq100', 'liquid', or a sector name like 'Technology'
         min_price: minimum stock price to include
         max_scanned: max tickers to scan (to avoid rate limits)
     """
     if universe == "default":
         return DEFAULT_TICKERS
+
+    # Check if it's a sector name
+    if universe in SECTOR_TICKERS:
+        print(f"  Using {universe} sector ({len(SECTOR_TICKERS[universe])} tickers)", file=sys.stderr)
+        return SECTOR_TICKERS[universe]
 
     raw_tickers = []
     if universe == "sp500":
@@ -153,7 +212,6 @@ def build_ticker_universe(universe: str = "default", min_price: float = 5.0,
         print("  Fetching NASDAQ-100 components...", file=sys.stderr)
         raw_tickers = fetch_nasdaq100_tickers()
     elif universe == "liquid":
-        # Use the default set but also dynamically fetch
         raw_tickers = DEFAULT_TICKERS + ["GOOG", "ORCL", "CRM", "ADBE", "PYPL",
                                           "SNAP", "UBER", "SQ", "RIVN", "LCID",
                                           "SOFI", "HOOD", "COIN", "MARA", "CVNA"]
@@ -1354,9 +1412,14 @@ def interactive_mode():
 
     universe = "default"
     try:
-        raw = input("  🌐 Ticker universe — default/sp500/nasdaq100/liquid? [default]: ").strip().lower()
-        if raw in ("sp500", "nasdaq100", "liquid", "default"):
+        raw = input("  🌐 Ticker universe — default/sp500/nasdaq100/liquid/sector? [default]: ").strip().lower()
+        if raw in ("sp500", "nasdaq100", "liquid", "default") or raw in {s.lower() for s in SECTOR_TICKERS}:
             universe = raw
+            # Map lowercase sector names back to proper case
+            for s in SECTOR_TICKERS:
+                if raw == s.lower():
+                    universe = s
+                    break
     except (EOFError, KeyboardInterrupt):
         pass
 
