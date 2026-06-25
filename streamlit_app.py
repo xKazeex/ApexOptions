@@ -5,13 +5,17 @@ import pandas as pd
 import json
 import logging
 from datetime import datetime, timedelta
-import sys
+import os
 from pathlib import Path
 
 # Add parent dir to path so engine imports work
 sys.path.insert(0, str(Path(__file__).parent))
 
 logging.basicConfig(level=logging.WARNING)
+
+# Auto-detect data source: prefer Tradier if API key is set, fall back to Yahoo
+import os
+DATA_SOURCE = "tradier" if os.environ.get("TRADIER_API_KEY") else "yahoo"
 
 from engine import run_analysis
 
@@ -44,7 +48,12 @@ if page == "🏠 Home":
     if run_btn:
         with st.spinner(f"Analyzing {ticker}..."):
             try:
-                result_json = run_analysis(ticker, account_size=int(account_size), output_format="json")
+                result_json = run_analysis(
+                    ticker,
+                    account_size=int(account_size),
+                    output_format="json",
+                    data_source=DATA_SOURCE,
+                )
                 data = json.loads(result_json)
             except Exception as e:
                 st.error(f"Analysis failed: {e}")

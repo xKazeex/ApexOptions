@@ -390,7 +390,7 @@ def create_data_source(source_type: str = "yahoo", **kwargs) -> DataSource:
     """Factory function to create a data source.
 
     Args:
-        source_type: One of 'yahoo' (default, free), 'polygon' (future), 'tradier' (future).
+        source_type: One of 'yahoo' (default, free), 'tradier' (requires API key).
         **kwargs: Additional arguments passed to the data source constructor.
 
     Returns:
@@ -399,6 +399,18 @@ def create_data_source(source_type: str = "yahoo", **kwargs) -> DataSource:
     source_map: dict[str, type[DataSource]] = {
         "yahoo": YahooFinanceDataSource,
     }
+
+    # Lazy-import Tradier only when requested
+    if source_type == "tradier":
+        try:
+            from .tradier_source import TradierDataSource
+            source_map["tradier"] = TradierDataSource
+        except ImportError as e:
+            raise ImportError(
+                f"Tradier data source not available: {e}. "
+                "Ensure tradier_source.py is present and requests is installed."
+            ) from e
+
     if source_type not in source_map:
         raise ValueError(
             f"Unknown data source '{source_type}'. "
