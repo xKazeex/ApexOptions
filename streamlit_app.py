@@ -3,6 +3,7 @@ Self-contained: calls the engine directly, no separate API server needed."""
 import streamlit as st
 import pandas as pd
 import json
+import sys
 import logging
 from datetime import datetime, timedelta
 import os
@@ -14,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 logging.basicConfig(level=logging.WARNING)
 
 # Auto-detect data source: prefer Tradier if API key is set, fall back to Yahoo
-import os
 DATA_SOURCE = "tradier" if os.environ.get("TRADIER_API_KEY") else "yahoo"
 
 from engine import run_analysis
