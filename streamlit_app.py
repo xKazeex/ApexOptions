@@ -48,15 +48,59 @@ if page == "🏠 Home":
     if run_btn:
         with st.spinner(f"Analyzing {ticker}..."):
             try:
-                result_json = run_analysis(
-                    ticker,
+                # Step-by-step with granular error messages
+                step = "initializing data source"
+                source_type = DATA_SOURCE
+                
+                from engine.data_fetcher import create_data_source
+                from engine.config import DEFAULT_CONFIG
+                cfg = DEFAULT_CONFIG
+                
+                step = f"creating {source_type} data source"
+                source = create_data_source(source_type, timeout=cfg.yfinance_timeout)
+                
+                step = f"fetching {ticker} price"
+                underlying = source.fetch_underlying(ticker)
+                
+                step = "fetching options chain"
+                chain = source.fetch_options_chain(ticker, max_strikes=cfg.max_strikes_per_side)
+                
+                step = "analyzing volatility"
+                from engine.volatility import analyze_volatility
+                vol = analyze_volatility(underlying, chain, rv_windows=cfg.rv_windows)
+                
+                step = "selecting strategy"
+                from engine.strategy_selector import select_strategy
+                strategy_rec = select_strategy(vol)
+                
+                step = "optimizing position"
+                from engine.position_optimizer import optimize_position, calculate_position_size
+                position = optimize_position(strategy_rec.strategy, chain, vol, cfg)
+                position.contracts = calculate_position_size(
+                    risk_per_contract=position.risk_per_contract,
+                    account_size=int(account_size),
+                    risk_per_trade_pct=cfg.risk_per_trade,
+                )
+                
+                step = "assessing risk"
+                from engine.risk_manager import assess_trade_risk
+                risk = assess_trade_risk(position, int(account_size), cfg)
+                
+                step = "generating report"
+                from engine.report_generator import generate_full_report
+                result_json = generate_full_report(
+                    vol_analysis=vol,
+                    strategy_rec=strategy_rec,
+                    position_params=position,
+                    risk_assessment=risk,
                     account_size=int(account_size),
                     output_format="json",
-                    data_source=DATA_SOURCE,
                 )
+                
                 data = json.loads(result_json)
+                
             except Exception as e:
-                st.error(f"Analysis failed: {e}")
+                st.error(f"❌ Failed at step '{step}': {type(e).__name__}: {e}")
                 data = None
 
         if data:

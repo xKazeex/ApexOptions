@@ -61,14 +61,24 @@ class TradierDataSource(DataSource):
         except Exception as e:
             raise ValueError(f"Tradier quote failed for {ticker}: {e}")
 
-        quotes = data.get("quotes", {}).get("quote", [])
-        if isinstance(quotes, dict):
-            quotes = [quotes]
+        if data is None:
+            raise ValueError(f"Empty response from Tradier for {ticker}")
 
-        if not quotes:
+        # Check for API-level errors
+        if "errors" in data:
+            err_msg = data["errors"]
+            raise ValueError(f"Tradier API error for {ticker}: {err_msg}")
+
+        quotes = data.get("quotes")
+        if quotes is None:
+            raise ValueError(f"No quotes data in Tradier response for {ticker}")
+        quote_list = quotes.get("quote", [])
+        if isinstance(quote_list, dict):
+            quote_list = [quote_list]
+        if not quote_list:
             raise ValueError(f"No quote data for {ticker}")
 
-        q = quotes[0]
+        q = quote_list[0]
         price = q.get("last", q.get("close", 0.0)) or 0.0
         symbol = q.get("symbol", ticker)
         name = q.get("description", symbol)
@@ -78,9 +88,6 @@ class TradierDataSource(DataSource):
         return UnderlyingData(
             ticker=symbol,
             price=float(price),
-            name=name,
-            change=float(change),
-            change_pct=float(change_pct),
         )
 
     def fetch_options_chain(
@@ -102,7 +109,15 @@ class TradierDataSource(DataSource):
         except Exception as e:
             raise ValueError(f"Tradier expirations failed for {ticker}: {e}")
 
-        expirations = exp_data.get("expirations", {}).get("expiration", [])
+        if exp_data is None:
+            raise ValueError(f"Empty expirations response from Tradier for {ticker}")
+        if "errors" in exp_data:
+            raise ValueError(f"Tradier API error: {exp_data['errors']}")
+
+        expirations_obj = exp_data.get("expirations")
+        if expirations_obj is None:
+            raise ValueError(f"No expirations data for {ticker}")
+        expirations = expirations_obj.get("expiration", [])
         if isinstance(expirations, dict):
             expirations = [expirations]
         if not expirations:
@@ -114,13 +129,15 @@ class TradierDataSource(DataSource):
             date_str = exp.get("date", "")
             if date_str:
                 expiration_dates.append(datetime.strptime(date_str, "%Y-%m-%d"))
-            strikes = exp.get("strikes", {}).get("strike", [])
-            if isinstance(strikes, (int, float)):
-                strikes = [float(strikes)]
-            elif isinstance(strikes, list):
-                strikes = [float(s) for s in strikes]
-            for s in strikes:
-                all_strikes.add(s)
+            strikes_obj = exp.get("strikes")
+            if strikes_obj is not None:
+                strikes = strikes_obj.get("strike", [])
+                if isinstance(strikes, (int, float)):
+                    strikes = [float(strikes)]
+                elif isinstance(strikes, list):
+                    strikes = [float(s) for s in strikes]
+                for s in strikes:
+                    all_strikes.add(s)
 
         expiration_dates.sort()
         all_strikes = sorted(all_strikes)
